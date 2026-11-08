@@ -1,0 +1,98 @@
+name: Build & deploy
+
+# Runs on every push, and nightly to pick up new cards and Forbidden & Limited List changes.
+# Deploying and image syncing are opt-in through repository variables (see README):
+#   DEPLOY_PAGES=true   publish to GitHub Pages
+#   SYNC_IMAGES=true    re-host missing card images in Supabase Storage
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --quiet pytest
+
+      - name: Build card data (cards, TCG banlist, mechanic tags)
+        run: python pipeline/build_data.py
+
+      - name: Pipeline tests
+        run: python -m pytest pipeline/tests -q
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+      - name: Build site
+        run: npm run build
+        env:
+          BASE_PATH: /${{ github.event.repository.name }}/
+          VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+          VITE_IMAGE_BASE: ${{ vars.SUPABASE_URL && format('{0}/storage/v1/object/public/card-images', vars.SUPABASE_URL) || '' }}
+
+      - name: Keep card data for the image job
+        uses: actions/upload-artifact@v4
+        with:
+          name: card-data
+          path: public/data/cards.json
+          retention-days: 2
+
+      - name: Upload site for Pages
+        if: github.event_name != 'pull_request' && vars.DEPLOY_PAGES == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    if: github.event_name != 'pull_request' && vars.DEPLOY_PAGES == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  images:
+    needs: build
+    if: github.event_name != 'pull_request' && vars.SYNC_IMAGES == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: card-data
+          path: public/data
+      - name: Re-host missing card images
+        run: python pipeline/sync_images.py public/data/cards.json
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
