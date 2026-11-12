@@ -47,9 +47,9 @@ jobs:
         run: npm run build
         env:
           BASE_PATH: /${{ github.event.repository.name }}/
+          # Supabase URL and publishable key default to src/lib/config.ts; repository variables override them
           VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
-          VITE_IMAGE_BASE: ${{ vars.SUPABASE_URL && format('{0}/storage/v1/object/public/card-images', vars.SUPABASE_URL) || '' }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
 
       - name: Keep the full database for publishing
         uses: actions/upload-artifact@v4

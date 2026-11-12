@@ -1,3 +1,4 @@
+import { IMAGE_BASE } from './config'
 import type { Card, CardIndex, CardMeta } from './types'
 
 const base = import.meta.env.BASE_URL
@@ -46,10 +47,8 @@ export async function loadTexts(): Promise<Record<string, string>> {
   return res.json()
 }
 
-const imageBase = (import.meta.env.VITE_IMAGE_BASE as string | undefined)?.replace(/\/$/, '')
-
-/** Re-hosted card image (Supabase Storage). Null when not configured. */
+/** Re-hosted card image (Supabase Storage). Null when not configured or not available. */
 export function imageUrl(card: Card): string | null {
-  if (!imageBase || card.noImage) return null
-  return `${imageBase}/${card.id}.jpg`
+  if (!IMAGE_BASE || card.noImage || card.id < 0) return null
+  return `${IMAGE_BASE}/${card.id}.jpg`
 }

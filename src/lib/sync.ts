@@ -1,11 +1,9 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { SUPABASE_KEY, SUPABASE_URL } from './config'
 import type { Collection, Deck } from './types'
 
-const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
-const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
-
-/** Null until the Supabase env vars are set: the app then runs in local mode. */
-export const supabase: SupabaseClient | null = url && key ? createClient(url, key) : null
+/** Null when Supabase is switched off (VITE_SUPABASE_URL=off): the app then runs in local mode. */
+export const supabase: SupabaseClient | null = SUPABASE_URL ? createClient(SUPABASE_URL, SUPABASE_KEY) : null
 
 interface DeckRow {
   id: string
