@@ -1,9 +1,9 @@
 name: Build & deploy
 
 # Runs on every push, and nightly to pick up new cards and Forbidden & Limited List changes.
-# Deploying and image syncing are opt-in through repository variables (see README):
-#   DEPLOY_PAGES=true   publish to GitHub Pages
-#   SYNC_IMAGES=true    re-host missing card images in Supabase Storage
+#  - build:        card data + tests + site
+#  - publish-data: complete OCG+TCG database -> `data` branch (Supabase loads it from there)
+#  - deploy:       GitHub Pages, opt-in with the repository variable DEPLOY_PAGES=true
 on:
   push:
     branches: [main]
@@ -30,8 +30,8 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install --quiet pytest
 
-      - name: Build card data (cards, TCG banlist, mechanic tags)
-        run: python pipeline/build_data.py
+      - name: Build card data (cards, banlists, mechanic tags)
+        run: python pipeline/build_data.py --full full-data
 
       - name: Pipeline tests
         run: python -m pytest pipeline/tests -q
@@ -51,12 +51,12 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
           VITE_IMAGE_BASE: ${{ vars.SUPABASE_URL && format('{0}/storage/v1/object/public/card-images', vars.SUPABASE_URL) || '' }}
 
-      - name: Keep card data for the image job
+      - name: Keep the full database for publishing
         uses: actions/upload-artifact@v4
         with:
-          name: card-data
-          path: public/data/cards.json
-          retention-days: 2
+          name: full-data
+          path: full-data
+          retention-days: 3
 
       - name: Upload site for Pages
         if: github.event_name != 'pull_request' && vars.DEPLOY_PAGES == 'true'
@@ -78,21 +78,39 @@ jobs:
       - id: deployment
         uses: actions/deploy-pages@v4
 
-  images:
+  publish-data:
     needs: build
-    if: github.event_name != 'pull_request' && vars.SYNC_IMAGES == 'true'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
       - uses: actions/download-artifact@v4
         with:
-          name: card-data
-          path: public/data
-      - name: Re-host missing card images
-        run: python pipeline/sync_images.py public/data/cards.json
+          name: full-data
+          path: full-data
+      - name: Publish to the data branch (single commit, replaced on every run)
         env:
-          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd full-data
+          cat > README.md <<'EOF'
+          # YGO card database (generated)
+
+          Rebuilt nightly by `.github/workflows/build-deploy.yml` on `main`. Do not edit.
+
+          - `cards.json`  every OCG/TCG card: names in all languages, English text, mechanic tags,
+            TCG/OCG legality, current and upcoming limits (0 Forbidden, 1 Limited, 2 Semi-Limited, 3 Unlimited)
+          - `prints.json` English (TCG) and Japanese (OCG) prints, one row per rarity
+          - `meta.json`   build time, banlist dates, counts
+
+          Sources: YAML Yugi (cards) and YAML Yugi Limit Regulations (Konami banlists).
+          Card names and text are © KONAMI.
+          EOF
+          git init -q -b data
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Card data $(jq -r .built meta.json)"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" data
+          jq -c . meta.json

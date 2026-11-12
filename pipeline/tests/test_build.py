@@ -42,3 +42,30 @@ def test_no_upcoming_list():
     data, _ = build(CARDS, {"date": "2026-10-19", "regulation": {"1": 1}}, None)
     assert data["meta"]["upcoming"] is None
     assert all("next" not in c for c in data["cards"])
+
+
+def test_full_export_keeps_ocg_and_flattens_prints():
+    from build_data import build_full
+    cards = CARDS + [
+        {  # brand-new card without a password yet
+            "konami_id": 9, "card_type": "Monster", "name": {"en": "New Card", "ja": "<ruby>灰<rt>は</rt></ruby>"},
+            "text": {"en": "Effect."}, "atk": "?", "def": 0,
+            "sets": {"en": [{"set_number": "NEW-EN001", "set_name": "New", "rarities": ["Common", "Secret Rare"]}],
+                     "de": [{"set_number": "NEW-DE001", "rarities": ["Common"]}]},
+        },
+        {"card_type": "Spell", "name": {"en": "No Ids"}, "text": {"en": "x"}, "sets": {"en": [{}]}},  # dropped
+    ]
+    full, prints, meta = build_full(cards, {"date": "2026-10-19", "regulation": {"1": 1}}, None,
+                                    {"date": "2026-10-01", "regulation": {"3": 0}}, None)
+    by = {c["name"]: c for c in full}
+    assert set(by) == {"Alpha", "Beta Link", "OCG Only", "New Card"}
+    assert by["OCG Only"]["tcg"] is False and by["OCG Only"]["ocg"] is True
+    assert by["OCG Only"]["ocg_limit"] == 0 and by["OCG Only"]["tcg_limit"] is None
+    assert by["Alpha"]["tcg_limit"] == 1 and by["Alpha"]["tcg_next_limit"] is None and by["Alpha"]["ocg_limit"] is None
+    assert by["New Card"]["id"] == -9 and by["New Card"]["password"] is None
+    assert by["New Card"]["names"] == {"ja": "灰"}
+    assert by["New Card"]["atk"] is None and by["New Card"]["def"] == 0
+    assert by["Beta Link"]["extra_deck"] is True and by["Beta Link"]["link_rating"] == 2
+    new_prints = [p for p in prints if p["card_id"] == -9]
+    assert [(p["region"], p["rarity"]) for p in new_prints] == [("en", "Common"), ("en", "Secret Rare")]  # no "de"
+    assert meta["cards"] == 4 and meta["tcg_cards"] == 3 and meta["ocg_cards"] == 1 and meta["ocg_banlist"] == "2026-10-01"
