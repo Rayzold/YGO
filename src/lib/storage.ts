@@ -22,6 +22,8 @@ export const KEYS = {
   collection: 'ygo.collection.v1',
   lang: 'ygo.lang',
   syncedUser: 'ygo.syncedUser',
+  shortlist: 'ygo.shortlist.v1',
+  geminiKey: 'ygo.geminiKey',
 } as const
 
 export function download(filename: string, content: string, mime = 'text/plain;charset=utf-8') {

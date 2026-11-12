@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { CombosPage, CounterPage, ShortlistPanel } from './components/AiTools'
 import { AuthModal } from './components/AuthModal'
 import { CardDetail } from './components/CardDetail'
 import { CollectionPage } from './components/CollectionPage'
@@ -12,10 +13,10 @@ import { supabase } from './lib/sync'
 import type { CardIndex, CardMeta } from './lib/types'
 import { StoreProvider, useStore } from './state'
 
-type Page = 'builder' | 'collection' | 'decks'
+type Page = 'builder' | 'collection' | 'decks' | 'counter' | 'combos'
 
 function Shell() {
-  const { t, lang, setLang, meta, session, signOut, sync, toast, deck } = useStore()
+  const { t, lang, setLang, meta, session, signOut, sync, toast, deck, shortlist } = useStore()
   const [page, setPage] = useState<Page>('builder')
   const [authOpen, setAuthOpen] = useState(false)
   const [mobileTab, setMobileTab] = useState<'search' | 'deck' | 'sug'>('search')
@@ -33,9 +34,10 @@ function Shell() {
           {meta.upcoming && <span className="pill warn">{t('app.upcoming', { date: meta.upcoming })}</span>}
         </div>
         <nav>
-          {(['builder', 'collection', 'decks'] as Page[]).map((p) => (
+          {(['builder', 'collection', 'decks', 'counter', 'combos'] as Page[]).map((p) => (
             <button key={p} type="button" className={page === p ? 'active' : ''} onClick={() => setPage(p)}>
               {t(`nav.${p}`)}
+              {p === 'builder' && shortlist.length > 0 && <span className="pill nav-badge">{shortlist.length}</span>}
             </button>
           ))}
         </nav>
@@ -67,6 +69,7 @@ function Shell() {
       <main>
         {page === 'builder' && (
           <>
+          <ShortlistPanel />
           <div className="mobile-tabs">
             {(['search', 'deck', 'sug'] as const).map((m) => (
               <button key={m} type="button" className={mobileTab === m ? 'active' : ''} onClick={() => setMobileTab(m)}>
@@ -83,6 +86,8 @@ function Shell() {
         )}
         {page === 'collection' && <CollectionPage />}
         {page === 'decks' && <DecksPage onOpen={() => setPage('builder')} />}
+        {page === 'counter' && <CounterPage />}
+        {page === 'combos' && <CombosPage />}
       </main>
 
       <footer>

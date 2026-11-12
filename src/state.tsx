@@ -38,6 +38,12 @@ export interface Store {
   notify: (msg: string) => void
   detail: Card | null
   showDetail: (c: Card | null) => void
+  /** cards collected from search, Counter Deck and combos, to add to a deck later (this browser only) */
+  shortlist: number[]
+  toggleList: (id: number) => void
+  clearList: () => void
+  geminiKey: string
+  setGeminiKey: (k: string) => void
 }
 
 const Ctx = createContext<Store | null>(null)
@@ -75,6 +81,8 @@ export function StoreProvider(props: {
   const [sync, setSync] = useState<SyncState>(supabase ? 'idle' : 'local')
   const [toast, setToast] = useState<string | null>(null)
   const [detail, showDetail] = useState<Card | null>(null)
+  const [shortlist, setShortlist] = useState<number[]>(() => readJson<number[]>(KEYS.shortlist, []))
+  const [geminiKey, setGeminiKeyState] = useState<string>(() => readJson<string>(KEYS.geminiKey, ''))
 
   const dirtyDecks = useRef(new Set<string>())
   const deletedDecks = useRef(new Set<string>())
@@ -96,6 +104,14 @@ export function StoreProvider(props: {
   useEffect(() => writeJson(KEYS.decks, decks), [decks])
   useEffect(() => writeJson(KEYS.collection, collection), [collection])
   useEffect(() => writeJson(KEYS.current, deck.id), [deck.id])
+  useEffect(() => writeJson(KEYS.shortlist, shortlist), [shortlist])
+
+  const toggleList = (id: number) => setShortlist((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id]))
+  const clearList = () => setShortlist([])
+  const setGeminiKey = (k: string) => {
+    setGeminiKeyState(k)
+    writeJson(KEYS.geminiKey, k)
+  }
 
   const setLang = (l: Lang) => {
     setLangState(l)
@@ -323,6 +339,11 @@ export function StoreProvider(props: {
     notify,
     detail,
     showDetail,
+    shortlist,
+    toggleList,
+    clearList,
+    geminiKey,
+    setGeminiKey,
   }
   return <Ctx.Provider value={store}>{props.children}</Ctx.Provider>
 }

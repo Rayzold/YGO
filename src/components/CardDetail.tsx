@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { imageUrl } from '../lib/data'
 import { useStore } from '../state'
+import { ListButton } from './AiTools'
 import { frameClass, LimitBadge } from './CardTile'
 
 export function CardDetail() {
@@ -76,6 +77,7 @@ export function CardDetail() {
             <button type="button" onClick={() => addCard(c, 'side')}>
               {t('tile.side')}
             </button>
+            <ListButton card={c} />
           </div>
         </div>
       </div>

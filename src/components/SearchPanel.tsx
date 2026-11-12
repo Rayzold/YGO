@@ -8,7 +8,7 @@ const PAGE = 60
 const ATTRS = ['DARK', 'LIGHT', 'EARTH', 'WATER', 'FIRE', 'WIND', 'DIVINE']
 
 export function SearchPanel() {
-  const { index, texts, collection, addCard, t } = useStore()
+  const { index, texts, collection, addCard, t, shortlist, toggleList } = useStore()
   const [q, setQ] = useState<Query>(EMPTY_QUERY)
   const [shown, setShown] = useState(PAGE)
   const deferred = useDeferredValue(q)
@@ -109,6 +109,7 @@ export function SearchPanel() {
             actions={[
               { label: '+', title: t('tile.add'), onClick: () => addCard(c) },
               { label: 'S', title: t('tile.side'), onClick: () => addCard(c, 'side') },
+              { label: shortlist.includes(c.id) ? '✓' : 'L', title: t(shortlist.includes(c.id) ? 'list.remove' : 'list.add'), onClick: () => toggleList(c.id) },
             ]}
           />
         ))}
