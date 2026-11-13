@@ -5,6 +5,7 @@ import { CardDetail } from './components/CardDetail'
 import { CollectionPage } from './components/CollectionPage'
 import { DeckPanel } from './components/DeckPanel'
 import { DecksPage } from './components/DecksPage'
+import { HomePage } from './components/HomePage'
 import { SearchPanel } from './components/SearchPanel'
 import { SuggestionsPanel } from './components/SuggestionsPanel'
 import { loadCards, loadTexts } from './lib/data'
@@ -13,29 +14,53 @@ import { supabase } from './lib/sync'
 import type { CardIndex, CardMeta } from './lib/types'
 import { StoreProvider, useStore } from './state'
 
-type Page = 'builder' | 'collection' | 'decks' | 'counter' | 'combos'
+type Page = 'home' | 'builder' | 'search' | 'collection' | 'decks' | 'counter' | 'combos'
+const PAGES: Page[] = ['home', 'builder', 'search', 'collection', 'decks', 'counter', 'combos']
+const fromHash = (): Page => {
+  const h = location.hash.slice(1) as Page
+  return PAGES.includes(h) ? h : 'home'
+}
 
 function Shell() {
   const { t, lang, setLang, meta, session, signOut, sync, toast, deck, shortlist } = useStore()
-  const [page, setPage] = useState<Page>('builder')
+  const [page, setPage] = useState<Page>(fromHash)
   const [authOpen, setAuthOpen] = useState(false)
   const [mobileTab, setMobileTab] = useState<'search' | 'deck' | 'sug'>('search')
+  // the page lives in the URL hash, so Back works and a link can open a page directly
+  const go = (p: Page) => {
+    if (p === page) return
+    history.pushState(null, '', p === 'home' ? location.pathname + location.search : `#${p}`)
+    setPage(p)
+    window.scrollTo(0, 0)
+  }
+  useEffect(() => {
+    const on = () => setPage(fromHash())
+    window.addEventListener('popstate', on)
+    return () => window.removeEventListener('popstate', on)
+  }, [])
   const syncLabel =
     sync === 'syncing' ? t('auth.syncing') : sync === 'synced' ? t('auth.synced') : typeof sync === 'object' ? t('auth.syncError', { error: sync.error }) : ''
 
   return (
     <>
+      <div className="sky" aria-hidden>
+        <i />
+        <i />
+        <i />
+      </div>
       <header className="top">
         <div className="brand">
-          <span className="logo">YGO</span>
-          <span>{t('app.title')}</span>
+          <button type="button" className="brand-home" onClick={() => go('home')} aria-label={t('nav.home')}>
+            <span className="logo">YGO</span>
+            <span>{t('app.title')}</span>
+          </button>
           <span className="pill">{t('app.format')}</span>
           {meta.banlist && <span className="pill subtle">{t('app.banlist', { date: meta.banlist })}</span>}
           {meta.upcoming && <span className="pill warn">{t('app.upcoming', { date: meta.upcoming })}</span>}
         </div>
         <nav>
-          {(['builder', 'collection', 'decks', 'counter', 'combos'] as Page[]).map((p) => (
-            <button key={p} type="button" className={page === p ? 'active' : ''} onClick={() => setPage(p)}>
+          {PAGES.filter((p) => p !== 'home').map((p) => (
+            <button key={p} type="button" className={page === p ? 'active' : ''} onClick={() => go(p)}>
               {t(`nav.${p}`)}
               {p === 'builder' && shortlist.length > 0 && <span className="pill nav-badge">{shortlist.length}</span>}
             </button>
@@ -67,6 +92,7 @@ function Shell() {
       </header>
 
       <main>
+        {page === 'home' && <HomePage go={go} />}
         {page === 'builder' && (
           <>
           <ShortlistPanel />
@@ -84,8 +110,13 @@ function Shell() {
           </div>
           </>
         )}
+        {page === 'search' && (
+          <div className="search-page">
+            <SearchPanel />
+          </div>
+        )}
         {page === 'collection' && <CollectionPage />}
-        {page === 'decks' && <DecksPage onOpen={() => setPage('builder')} />}
+        {page === 'decks' && <DecksPage onOpen={() => go('builder')} />}
         {page === 'counter' && <CounterPage />}
         {page === 'combos' && <CombosPage />}
       </main>
