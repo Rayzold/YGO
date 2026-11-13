@@ -6,6 +6,8 @@ import { CollectionPage } from './components/CollectionPage'
 import { DeckPanel } from './components/DeckPanel'
 import { DecksPage } from './components/DecksPage'
 import { HomePage } from './components/HomePage'
+import { Crown, Star } from './components/Icons'
+import { Sky } from './components/Sky'
 import { SearchPanel } from './components/SearchPanel'
 import { SuggestionsPanel } from './components/SuggestionsPanel'
 import { loadCards, loadTexts } from './lib/data'
@@ -43,17 +45,14 @@ function Shell() {
 
   return (
     <>
-      <div className="sky" aria-hidden>
-        <i />
-        <i />
-        <i />
-      </div>
+      <Sky />
       <header className="top">
         <div className="brand">
           <button type="button" className="brand-home" onClick={() => go('home')} aria-label={t('nav.home')}>
-            <span className="logo">YGO</span>
-            <span>{t('app.title')}</span>
+            <Crown />
+            <span className="brand-name">{t('app.title')}</span>
           </button>
+          <span className="brand-tagline">{t('app.tagline')}</span>
           <span className="pill">{t('app.format')}</span>
           {meta.banlist && <span className="pill subtle">{t('app.banlist', { date: meta.banlist })}</span>}
           {meta.upcoming && <span className="pill warn">{t('app.upcoming', { date: meta.upcoming })}</span>}
@@ -122,6 +121,9 @@ function Shell() {
       </main>
 
       <footer>
+        <p className="motto">
+          <Star /> {t('app.motto')}
+        </p>
         <p>{t('footer.legal')}</p>
         <p>{t('footer.data')}</p>
       </footer>
